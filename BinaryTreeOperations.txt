@@ -1,0 +1,25 @@
+1. Pseudo-code to traverse down the tree with height kmax
+
+r = the random number
+m(n) = the function value of the n-th node
+mtest = the targeted m value 
+
+mtest= r*m(1)				
+n=1
+DO WHILE n lower than 2**kmax
+	n=2*n
+	IF (mtest greater than m(n)) THEN
+		n=n+1
+		mtest=mtest-m(n)
+	ENDIF
+ENDDO
+
+2. Pseudo-code to traverse up the tree with height kmax
+
+ntest = node of the targeted m value mtest
+
+n=ntest							 
+DO WHILE n not equal to 1
+	n=n/2
+ENDDO
+
