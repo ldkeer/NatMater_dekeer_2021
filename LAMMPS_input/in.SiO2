@@ -1,0 +1,111 @@
+# SiO2 -- one connectivity, multiple trials -- with bulk modulus simulation
+
+# trial parameter
+variable a index 1.1 1.2 1.3 
+# SiO2 precursor start moleculeID parameter
+variable p index 1 1 1 
+# SiO2 precursor end moleculeID parameter
+variable q index 2000 2000 2000 
+# free O start atomID parameter
+variable r index 2001 2001 2001 
+# free O end atomID parameter
+variable s index 6600 6600 6600 
+# porogen start moleculeID parameter
+variable t index 2001 2001 2001 
+# porogen end moleculeID parameter
+variable v index 2000 2000 2000 
+
+log log_$a.lammps
+
+#########################################################################
+dimension 3
+atom_style full
+
+# bonded potentials
+dihedral_style hybrid opls class2
+
+boundary p p p
+units metal
+neighbor 2 bin
+neigh_modify check yes
+
+timestep 0.001
+
+read_data data.SiO2_2000_$a
+
+#########################################################################
+# number of SiO2 precursors (referenced by moleculeID)
+group precursors molecule <> $p $q
+
+# number of free O atoms (referenced by atomID)
+group freeO id <> $r $s
+
+# number of porogen molecules (referenced by moleculeID)
+group porogen molecule <> $t $v
+
+group active union precursors freeO porogen
+group activematrix union precursors freeO
+group inactive subtract all active
+delete_atoms group inactive
+
+#########################################################################
+#soft potential to push the atoms apart
+pair_style soft 3
+pair_coeff	* * 0 500 3
+
+thermo_style custom step temp tave press pave lx ly lz vol epair etotal
+
+fix 1		active nvt 6000 6000 0.0100 drag 2.00
+thermo		1000
+run		20000
+
+thermo		1
+minimize		1e-4 10000 10000
+
+#########################################################################
+# simulated annealing to create structure
+pair_style sw
+pair_coeff * * OCS.sw Si O C
+
+thermo		100
+
+unfix		1
+fix		1 active npt 12000 6000 0.0100 xyz 90000 60000 0.1000 drag 2.00
+run		10000
+
+unfix		1
+fix		1 active npt 6000 300 0.0100 xyz 60000 1 0.1000 drag 2.00
+run		100000
+
+unfix		1
+fix		1 all npt 300 300 0.01 xyz 1 1 0.1 drag 2
+fix		2 active rdf 2000 SiO2_rdf_$a.txt 100 1 1 1 2 2 1 1 3 3 1 2 3 3 2 2 2 3 3
+dump		1 porogen xyz 10000 porogen_*_$a.xyz
+dump		2 active xyz 10000 SiO2_*_$a.xyz
+dump		3 activematrix xyz 10000 SiO2_matrix_*_$a.xyz
+run		10000
+undump		1
+undump		2
+undump		3
+
+#########################################################################
+# remove the porogen molecules from the simulation and equilibrate the structure
+
+delete_atoms group porogen
+
+dump		1 active custom 5000 SiO2_*_$a.xyz tag type x y z
+
+unfix		1
+fix		1 all npt 300 300 0.01 xyz 1 1 0.1 drag 2
+run		20000
+
+#########################################################################
+clear
+next a
+next p
+next q
+next r
+next s
+next t
+next v
+jump in.SiO2
